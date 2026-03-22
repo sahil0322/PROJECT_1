@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Audio Summarizer - Live Premium Night</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+</head>
+
+<body>
+
+    <div id="space-background">
+        <div class="nebula"></div>
+        <div class="stars-layer stars-3"></div>
+        <div class="stars-layer stars-2"></div>
+        <div class="stars-layer stars-1"></div>
+    </div>
+
+    <div class="container">
+        <header>
+            <div class="logo">Vibe-Notes</div>
+            <div class="export-btns">
+                <button id="export-pdf-btn">
+                    <svg class="icon" viewBox="0 0 24 24">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                        <polyline points="10 9 9 9 8 9"></polyline>
+                    </svg>
+                    Export PDF
+                </button>
+                <button id="export-txt-btn">
+                    <svg class="icon" viewBox="0 0 24 24">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                    </svg>
+                    Raw TXT
+                </button>
+            </div>
+        </header>
+
+        <form id="upload-form" class="card dropzone" onclick="document.getElementById('audio-file').click();">
+            <input type="file" id="audio-file" name="audio_file" accept=".wav,.mp3,.m4a" style="display: none;"
+                required>
+
+            <div class="dropzone-icon-wrapper">
+                <svg class="icon" style="width: 48px; height: 48px;" viewBox="0 0 24 24">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="17 8 12 3 7 8"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+            </div>
+            <h3 id="upload-text">Upload meeting audio</h3>
+            <p style="color: var(--text-muted); font-weight: 300;">Click to browse files</p>
+            <p class="micro-copy">WAV, MP3, M4A • Max 50MB</p>
+
+            <button type="submit" class="btn-primary" id="process-btn">
+                <svg class="icon" viewBox="0 0 24 24">
+                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                </svg>
+                Process Audio
+            </button>
+        </form>
+
+        <section class="card loading-state" id="loading-section" style="display: none;">
+            <div class="dynamic-text">Analyzing audio frequencies...</div>
+            <div class="skeleton-wrapper">
+                <div class="skeleton title"></div>
+                <div class="skeleton"></div>
+                <div class="skeleton"></div>
+                <div class="skeleton line-short"></div>
+            </div>
+        </section>
+
+        <section class="results-grid" id="results-section" style="display: none;">
+
+            <div class="card summary-col">
+                <div id="summary-content"></div>
+            </div>
+
+            <div class="card transcript-col">
+                <div id="transcript-content"></div>
+            </div>
+
+        </section>
+    </div>
+
+    <div class="sticky-player">
+        <audio id="audio-player" controls>
+            <source src="#" type="audio/mpeg">
+            Your browser does not support the audio element.
+        </audio>
+    </div>
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const uploadForm = document.getElementById('upload-form');
+            const fileInput = document.getElementById('audio-file');
+            const loadingSection = document.getElementById('loading-section');
+            const resultsSection = document.getElementById('results-section');
+            const dynamicText = document.querySelector('.dynamic-text');
+            const audioPlayer = document.getElementById('audio-player');
+            const exportPdfBtn = document.getElementById('export-pdf-btn');
+            const exportTxtBtn = document.getElementById('export-txt-btn');
+
+            // --- 1. EXPORT TO TXT LOGIC ---
+            exportTxtBtn.addEventListener('click', () => {
+                // Grab the text straight from your summary and transcript columns
+                const summaryText = document.querySelector('.summary-col').innerText;
+                const transcriptText = document.querySelector('.transcript-col').innerText;
+
+                // Format it cleanly
+                const fullText = `--- MEETING SUMMARY ---\n\n${summaryText}\n\n\n--- FULL TRANSCRIPT ---\n\n${transcriptText}`;
+
+                // Create a virtual text file and trigger a download
+                const blob = new Blob([fullText], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'Meeting_Notes.txt';
+                a.click();
+                URL.revokeObjectURL(url); // Clean up memory
+            });
+
+            // --- 2. EXPORT TO PDF LOGIC ---
+            exportPdfBtn.addEventListener('click', () => {
+                // Grab the whole results section to turn into a PDF
+                const element = document.getElementById('results-section');
+
+                // Setup the PDF styling
+                const opt = {
+                    margin: 0.5,
+                    filename: 'Meeting_Notes.pdf',
+                    image: { type: 'jpeg', quality: 0.98 },
+                    html2canvas: { scale: 2, useCORS: true, backgroundColor: '#020617' }, // Matches your dark theme!
+                    jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+                };
+
+                // Generate and download
+                html2pdf().set(opt).from(element).save();
+            });
+
+            uploadForm.addEventListener('submit', async (e) => {
+                e.preventDefault(); // Stop page from refreshing
+
+                const file = fileInput.files[0];
+                if (!file) {
+                    alert("Please select an audio file first!");
+                    return;
+                }
+
+                // 1. UI STATE: Hide upload, Show loading
+                uploadForm.style.display = 'none';
+                loadingSection.style.display = 'block';
+
+                // 2. FUN DETAIL: Cycle the loading text so the user doesn't get bored
+                const loadingMessages = [
+                    "Analyzing audio frequencies...",
+                    "Transcribing speech to text...",
+                    "Running speaker diarization...",
+                    "Gemini is writing the summary..."
+                ];
+                let msgIndex = 0;
+                const msgInterval = setInterval(() => {
+                    msgIndex = (msgIndex + 1) % loadingMessages.length;
+                    dynamicText.innerText = loadingMessages[msgIndex];
+                }, 6000); // Change text every 6 seconds
+
+                // 3. Prepare the audio file to send to Python
+                const formData = new FormData();
+                formData.append('audio_file', file);
+
+                try {
+                    // 4. SEND TO FLASK BACKEND (We will build this API route next!)
+                    const response = await fetch('/api/process', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (!response.ok) throw new Error("Server failed to process audio");
+
+                    // 5. RECEIVE THE AI DATA BACK FROM PYTHON
+                    const ai_data = await response.json();
+
+                    // 6. UI STATE: Stop loading, Show results
+                    clearInterval(msgInterval);
+                    loadingSection.style.display = 'none';
+                    resultsSection.style.display = 'grid';
+
+                    // 7. Inject the real AI text into your beautiful HTML cards
+                    // Parse the JSON string sent from Python into a JavaScript object
+                    const summaryData = JSON.parse(ai_data.summary_json);
+                    const summaryContainer = document.getElementById('summary-content');
+                    summaryContainer.innerHTML = ''; // Clear out any old content
+
+                    // --- 1. Safely render Insights ---
+                    if (summaryData.insights && summaryData.insights.length > 0) {
+                        const insightTitle = document.createElement('div');
+                        insightTitle.className = 'section-title';
+                        insightTitle.textContent = 'Key Insights';
+                        summaryContainer.appendChild(insightTitle);
+
+                        const ul = document.createElement('ul');
+                        ul.className = 'summary-list';
+                        summaryData.insights.forEach(insight => {
+                            const li = document.createElement('li');
+                            li.textContent = insight; // textContent prevents execution of scripts!
+                            ul.appendChild(li);
+                        });
+                        summaryContainer.appendChild(ul);
+                    }
+
+                    // --- 2. Safely render Decisions ---
+                    if (summaryData.decisions && summaryData.decisions.length > 0) {
+                        const decisionTitle = document.createElement('div');
+                        decisionTitle.className = 'section-title';
+                        decisionTitle.textContent = 'Strategic Decisions';
+                        summaryContainer.appendChild(decisionTitle);
+
+                        summaryData.decisions.forEach(decision => {
+                            const decisionDiv = document.createElement('div');
+                            decisionDiv.className = 'decision-block';
+                            decisionDiv.textContent = decision;
+                            summaryContainer.appendChild(decisionDiv);
+                        });
+                    }
+
+                    // --- 3. Safely render Actions ---
+                    if (summaryData.actions && summaryData.actions.length > 0) {
+                        const actionTitle = document.createElement('div');
+                        actionTitle.className = 'section-title';
+                        actionTitle.textContent = 'Action Register';
+                        summaryContainer.appendChild(actionTitle);
+
+                        summaryData.actions.forEach((action, index) => {
+                            const actionDiv = document.createElement('div');
+                            actionDiv.className = 'action-item';
+
+                            const checkbox = document.createElement('input');
+                            checkbox.type = 'checkbox';
+                            checkbox.id = `task${index}`;
+
+                            const label = document.createElement('label');
+                            label.setAttribute('for', `task${index}`);
+                            label.textContent = action;
+
+                            // Append the input and label to the actionDiv
+                            actionDiv.appendChild(checkbox);
+                            actionDiv.appendChild(label);
+
+                            // Append the whole item to the main container
+                            summaryContainer.appendChild(actionDiv);
+                        });
+                    }
+
+
+                    audioPlayer.src = URL.createObjectURL(file);
+
+                } catch (error) {
+                    console.error(error);
+                    alert("Something went wrong. Please check the Python console.");
+                    clearInterval(msgInterval);
+                    uploadForm.style.display = 'flex';
+                    loadingSection.style.display = 'none';
+                }
+
+                exportPdfBtn.addEventListener('click', () => {
+
+                    const pdfContainer = document.createElement('div');
+                    pdfContainer.style.padding = '20px';
+                    pdfContainer.style.fontFamily = 'Arial, sans-serif';
+                    pdfContainer.style.color = '#000000'; // Force black text
+                    pdfContainer.style.background = '#ffffff'; // Force white background
+
+                    // 2. Build a clean layout using the data already on your screen
+                    pdfContainer.innerHTML = `
+                    <h1 style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px;">Meeting Notes & Transcript</h1>
+                    
+                    <h2 style="margin-top: 30px; color: #333;">📝 Executive Summary</h2>
+                    <div style="font-size: 14px; line-height: 1.6;">
+                        ${document.getElementById('summary-content').innerHTML}
+                    </div>
+
+                    <h2 style="margin-top: 40px; border-bottom: 1px solid #ccc; padding-bottom: 10px; color: #333;">🗣️ Full Transcript</h2>
+                    <div style="font-size: 14px; line-height: 1.6;">
+                        ${document.getElementById('transcript-content').innerHTML}
+                    </div>
+                `;
+
+                    // 3. Force all nested elements to have readable text (overriding your dark mode CSS)
+                    const allElements = pdfContainer.querySelectorAll('*');
+                    allElements.forEach(el => {
+                        el.style.color = '#000000';
+                        el.style.textShadow = 'none';
+                    });
+
+                    // 4. Setup PDF options for a crisp, white document
+                    const opt = {
+                        margin: 0.5,
+                        filename: 'Meeting_Notes_Clean.pdf',
+                        image: { type: 'jpeg', quality: 0.98 },
+                        html2canvas: { scale: 2, backgroundColor: '#ffffff' }, // Pure white background!
+                        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+                    };
+
+                    // 5. Generate and download!
+                    html2pdf().set(opt).from(pdfContainer).save();
+                });
+            });
+        });
+    </script>
+</body>
+
+</html>
