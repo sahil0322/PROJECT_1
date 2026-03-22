@@ -77,9 +77,8 @@ python main.py
 
 **Your Name**
 
-* GitHub: https://github.com/yourusername
-* LinkedIn: https://linkedin.com/in/yourprofile
-
+* GitHub: https://github.com/sahil0322
+  
 ---
 
 ## 📜 License
